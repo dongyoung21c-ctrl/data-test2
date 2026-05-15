@@ -18,6 +18,7 @@ export type QuadrantType = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 export interface Strategy {
   id: string;
   studentId: string;
+  studentName: string;
   quadrant: QuadrantType;
   strategy: string;
   userId: string;

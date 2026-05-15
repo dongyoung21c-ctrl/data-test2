@@ -371,10 +371,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user || !selectedStudent.id || !APP_ID) return;
+    if (!APP_ID) return;
 
-    // Isolate by student: listen to the current student's specific subcollection
-    const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students', selectedStudent.id, 'strategies');
+    // Unified Archive: listen to all strategies for this app instance
+    const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'strategies');
     
     const unsubscribe = onSnapshot(strategiesRef, (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Strategy));
@@ -385,27 +385,27 @@ export default function App() {
         return timeB - timeA;
       }));
     }, (error) => {
-      // Detailed error logging to help diagnose save issues
-      const path = `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`;
+      const path = `artifacts/${APP_ID}/public/data/strategies`;
       console.error(`Firestore List Error on path [${path}]:`, error);
       handleFirestoreError(error, OperationType.LIST, path);
     });
 
     return () => unsubscribe();
-  }, [user, selectedStudent.id]);
+  }, [APP_ID]);
 
   const handleSubmit = async () => {
-    if (!selectedQuadrant || !strategyText.trim() || !user) return;
+    if (!selectedQuadrant || !strategyText.trim()) return;
     setIsSubmitting(true);
-    const path = `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`;
+    const path = `artifacts/${APP_ID}/public/data/strategies`;
     
     try {
-      const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students', selectedStudent.id, 'strategies');
+      const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'strategies');
       await addDoc(strategiesRef, {
         studentId: selectedStudent.id,
+        studentName: selectedStudent.name,
         quadrant: selectedQuadrant,
         strategy: strategyText,
-        userId: user.uid,
+        userId: user?.uid || `guest-${trainee.name}`,
         userName: trainee.name || '익명 선생님',
         userSchool: trainee.school || '소속 미설정',
         createdAt: serverTimestamp()
@@ -727,12 +727,10 @@ export default function App() {
                       submitStatus === 'error' ? "bg-red-500" : "bg-[#BFCDE0] hover:bg-blue-600 disabled:bg-[#DCE1EA]"
                     )}
                   >
-                    {!user && submitStatus === 'idle' && <AlertCircle className="w-5 h-5 text-amber-200" />}
                     {submitStatus === 'success' ? <CheckCircle className="w-5 h-5" /> : <Send className="w-4 h-4" />}
                     {isSubmitting ? '전략 공유 중...' : 
                      submitStatus === 'success' ? '공유 완료!' : 
-                     submitStatus === 'error' ? '오류 발생' : 
-                     !user ? '로그인 대기 중...' : '전략 공유하기'}
+                     submitStatus === 'error' ? '오류 발생' : '전략 공유하기'}
                   </button>
                 </div>
               </div>
@@ -773,11 +771,15 @@ export default function App() {
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full bg-[#E6F0FE] text-blue-600 flex items-center justify-center font-bold text-sm">
-                            {item.userName?.slice(0, 1)}
+                            {item.studentName?.slice(0, 1) || '학'}
                           </div>
                           <div>
-                            <div className="text-sm font-bold text-slate-800">{item.userName} 선생님</div>
-                            <div className="text-[11px] text-slate-400 font-medium">{item.userSchool}</div>
+                            <div className="text-sm font-bold text-slate-800">
+                              <span className="text-blue-600">[{item.studentName}]</span> 대상 분석
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-medium">
+                              {item.userName} 선생님 ({item.userSchool})
+                            </div>
                           </div>
                         </div>
                         <div className={cn(
