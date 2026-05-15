@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(data) {
+      return isSignedIn() && data.userId == request.auth.uid;
+    }
+
+    function isValidStrategy(data) {
+      return data.keys().hasAll(['studentId', 'quadrant', 'strategy', 'userId', 'userName', 'userSchool', 'createdAt'])
+        && data.keys().size() == 7
+        && data.studentId is string && data.studentId.size() <= 64
+        && data.quadrant in ['Q1', 'Q2', 'Q3', 'Q4']
+        && data.strategy is string && data.strategy.size() > 0 && data.strategy.size() <= 5000
+        && data.userId == request.auth.uid
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100
+        && data.userSchool is string && data.userSchool.size() > 0 && data.userSchool.size() <= 100
+        && data.createdAt == request.time;
+    }
+
+    match /artifacts/{appId} {
+      allow read: if isValidId(appId);
+      
+      match /public/data/strategies/{strategyId} {
+        allow list: if isSignedIn() && isValidId(appId);
+        allow get: if isSignedIn() && isValidId(appId);
+        allow create: if isSignedIn() && isValidId(appId) && isValidStrategy(incoming());
+        allow update: if false; // Strategies are immutable for now to ensure integrity
+        allow delete: if isSignedIn() && isOwner(existing());
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "학습데이터 분석기: 학생 데이터 대시보드",
+  "description": "학습 로그와 성취도 데이터를 분석하여 맞춤형 교수 학습 전략을 제안하는 교사용 전문 학습데이터 분석기입니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

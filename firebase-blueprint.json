@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "Strategy": {
+      "title": "Learning Strategy",
+      "description": "A instructional strategy shared by a teacher for a specific student quadrant.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "description": "ID of the student being analyzed" },
+        "quadrant": { "type": "string", "enum": ["Q1", "Q2", "Q3", "Q4"], "description": "The quadrant the student fell into" },
+        "strategy": { "type": "string", "description": "Detailed teaching strategy text" },
+        "userId": { "type": "string", "description": "UID of the teacher who wrote it" },
+        "userName": { "type": "string", "description": "Name of the teacher" },
+        "userSchool": { "type": "string", "description": "School of the teacher" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation" }
+      },
+      "required": ["studentId", "quadrant", "strategy", "userId", "userName", "userSchool", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/artifacts/{appId}/public/data/strategies/{strategyId}": {
+      "schema": "Strategy",
+      "description": "Collection of shared instructional strategies"
+    }
+  }
+}
