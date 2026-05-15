@@ -319,6 +319,14 @@ export default function App() {
   const [strategyText, setStrategyText] = useState('');
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  useEffect(() => {
+    if (submitStatus !== 'idle') {
+      const timer = setTimeout(() => setSubmitStatus('idle'), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [submitStatus]);
 
   useEffect(() => {
     // @ts-ignore
@@ -328,7 +336,16 @@ export default function App() {
         if (initialToken) {
           await signInWithCustomToken(auth, initialToken);
         } else {
-          await signInAnonymously(auth);
+          // Only attempt anonymous sign-in if no token is present and we're not already signing in
+          try {
+            await signInAnonymously(auth);
+          } catch (anonErr: any) {
+            if (anonErr.code === 'auth/admin-restricted-operation') {
+              console.warn("Anonymous authentication is disabled in Firebase console. Please enable it or sign in via Google.");
+            } else {
+              throw anonErr;
+            }
+          }
         }
       } catch (err) {
         console.error("Auth Fail:", err);
@@ -354,21 +371,24 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !selectedStudent.id || !APP_ID) return;
 
     // Isolate by student: listen to the current student's specific subcollection
     const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students', selectedStudent.id, 'strategies');
     
     const unsubscribe = onSnapshot(strategiesRef, (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Strategy));
-      // Local sort with null check
+      // Local sort with null check for pending server timestamps
       setStrategies(data.sort((a, b) => {
         const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : Date.now();
         const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : Date.now();
         return timeB - timeA;
       }));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`);
+      // Detailed error logging to help diagnose save issues
+      const path = `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`;
+      console.error(`Firestore List Error on path [${path}]:`, error);
+      handleFirestoreError(error, OperationType.LIST, path);
     });
 
     return () => unsubscribe();
@@ -378,6 +398,7 @@ export default function App() {
     if (!selectedQuadrant || !strategyText.trim() || !user) return;
     setIsSubmitting(true);
     const path = `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`;
+    
     try {
       const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students', selectedStudent.id, 'strategies');
       await addDoc(strategiesRef, {
@@ -385,13 +406,16 @@ export default function App() {
         quadrant: selectedQuadrant,
         strategy: strategyText,
         userId: user.uid,
-        userName: trainee.name,
-        userSchool: trainee.school,
+        userName: trainee.name || '익명 선생님',
+        userSchool: trainee.school || '소속 미설정',
         createdAt: serverTimestamp()
       });
       setStrategyText('');
       setSelectedQuadrant(null);
+      setSubmitStatus('success');
     } catch (err) {
+      console.error("Strategy Save Error:", err);
+      setSubmitStatus('error');
       handleFirestoreError(err, OperationType.CREATE, path);
     } finally {
       setIsSubmitting(false);
@@ -629,7 +653,6 @@ export default function App() {
               
               <div className="bg-slate-100 p-1.5 rounded-xl flex gap-1 border border-slate-200">
                 <button className="px-4 py-2 rounded-lg bg-white shadow-sm text-xs font-bold text-slate-900">분류 모드</button>
-                <button className="px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-600">패턴 요약</button>
               </div>
             </div>
 
@@ -698,10 +721,18 @@ export default function App() {
                   <button
                     onClick={handleSubmit}
                     disabled={!selectedQuadrant || !strategyText.trim() || isSubmitting}
-                    className="flex items-center gap-2 px-8 py-4 bg-[#BFCDE0] text-white rounded-xl font-bold text-md hover:bg-blue-600 disabled:bg-[#DCE1EA] disabled:text-white transition-all shadow-lg active:scale-95"
+                    className={cn(
+                      "flex items-center gap-2 px-8 py-4 text-white rounded-xl font-bold text-md transition-all shadow-lg active:scale-95",
+                      submitStatus === 'success' ? "bg-green-500" : 
+                      submitStatus === 'error' ? "bg-red-500" : "bg-[#BFCDE0] hover:bg-blue-600 disabled:bg-[#DCE1EA]"
+                    )}
                   >
-                    <Send className="w-4 h-4" />
-                    {isSubmitting ? '전략 공유 중...' : '전략 공유하기'}
+                    {!user && submitStatus === 'idle' && <AlertCircle className="w-5 h-5 text-amber-200" />}
+                    {submitStatus === 'success' ? <CheckCircle className="w-5 h-5" /> : <Send className="w-4 h-4" />}
+                    {isSubmitting ? '전략 공유 중...' : 
+                     submitStatus === 'success' ? '공유 완료!' : 
+                     submitStatus === 'error' ? '오류 발생' : 
+                     !user ? '로그인 대기 중...' : '전략 공유하기'}
                   </button>
                 </div>
               </div>

@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
 
     function incoming() {
@@ -28,13 +28,10 @@ service cloud.firestore {
 
     function isValidStrategy(data) {
       return data.keys().hasAll(['studentId', 'quadrant', 'strategy', 'userId', 'userName', 'userSchool', 'createdAt'])
-        && data.keys().size() == 7
-        && data.studentId is string && data.studentId.size() <= 64
+        && data.studentId is string && data.studentId.size() <= 128
         && data.quadrant in ['Q1', 'Q2', 'Q3', 'Q4']
         && data.strategy is string && data.strategy.size() > 0 && data.strategy.size() <= 5000
         && data.userId == request.auth.uid
-        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100
-        && data.userSchool is string && data.userSchool.size() > 0 && data.userSchool.size() <= 100
         && data.createdAt == request.time;
     }
 
@@ -47,7 +44,9 @@ service cloud.firestore {
         match /strategies/{strategyId} {
           allow list: if isSignedIn() && isValidId(appId) && isValidId(studentId);
           allow get: if isSignedIn() && isValidId(appId) && isValidId(studentId);
-          allow create: if isSignedIn() && isValidId(appId) && isValidId(studentId) && isValidStrategy(incoming()) && incoming().studentId == studentId;
+          allow create: if isSignedIn() && isValidId(appId) && isValidId(studentId) && 
+                         isValidStrategy(incoming()) && 
+                         (incoming().studentId == studentId || !incoming().keys().hasAll(['studentId']));
           allow update: if false;
           allow delete: if isSignedIn() && isValidId(studentId) && isOwner(existing());
         }
