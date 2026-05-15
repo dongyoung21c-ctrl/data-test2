@@ -17,9 +17,9 @@
     }
   },
   "firestore": {
-    "/artifacts/{appId}/public/data/strategies/{strategyId}": {
+    "/artifacts/{appId}/public/data/students/{studentId}/strategies/{strategyId}": {
       "schema": "Strategy",
-      "description": "Collection of shared instructional strategies"
+      "description": "Collection of shared instructional strategies for a specific student"
     }
   }
 }

@@ -41,12 +41,16 @@ service cloud.firestore {
     match /artifacts/{appId} {
       allow read: if isValidId(appId);
       
-      match /public/data/strategies/{strategyId} {
-        allow list: if isSignedIn() && isValidId(appId);
-        allow get: if isSignedIn() && isValidId(appId);
-        allow create: if isSignedIn() && isValidId(appId) && isValidStrategy(incoming());
-        allow update: if false; // Strategies are immutable for now to ensure integrity
-        allow delete: if isSignedIn() && isOwner(existing());
+      match /public/data/students/{studentId} {
+        allow read: if isValidId(appId) && isValidId(studentId);
+
+        match /strategies/{strategyId} {
+          allow list: if isSignedIn() && isValidId(appId) && isValidId(studentId);
+          allow get: if isSignedIn() && isValidId(appId) && isValidId(studentId);
+          allow create: if isSignedIn() && isValidId(appId) && isValidId(studentId) && isValidStrategy(incoming()) && incoming().studentId == studentId;
+          allow update: if false;
+          allow delete: if isSignedIn() && isValidId(studentId) && isOwner(existing());
+        }
       }
     }
   }

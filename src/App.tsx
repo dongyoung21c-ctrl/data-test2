@@ -225,11 +225,10 @@ const STUDENTS: Student[] = [
   }
 ];
 
-const QUADRANTS: Record<QuadrantType, { name: string; color: string; bullets: string[]; footer: string; border: string; accent: string }> = {
+const QUADRANTS: Record<QuadrantType, { name: string; color: string; bullets: string[]; border: string; accent: string }> = {
   Q1: { 
     name: '고성취 · 고참여', 
     bullets: ['심화 및 확장 과제 제공', '주도적 프로젝트 리더십'],
-    footer: '학습 동기를 유지하며 더 깊이 있는 탐구 활동으로 연결',
     color: 'text-[#00AEEF]',
     border: 'border-[#00AEEF]',
     accent: 'bg-[#E6F7FE]'
@@ -237,7 +236,6 @@ const QUADRANTS: Record<QuadrantType, { name: string; color: string; bullets: st
   Q2: { 
     name: '고성취 · 저참여', 
     bullets: ['도전감 및 의미 강화', '동료 튜터(Tutor) 역할 부여'],
-    footer: '지루함을 느끼지 않도록 흥미를 유발하고 리더십 경험 제공',
     color: 'text-[#F58220]',
     border: 'border-[#F58220]',
     accent: 'bg-[#FFF6ED]'
@@ -245,7 +243,6 @@ const QUADRANTS: Record<QuadrantType, { name: string; color: string; bullets: st
   Q3: { 
     name: '저성취 · 고참여', 
     bullets: ['기초 개념 보강 피드백', '작은 성공 경험 설계'],
-    footer: '의지는 높으나 방법이 부족할 수 있으므로 구체적인 학습 전략 코칭',
     color: 'text-[#4460F1]',
     border: 'border-[#4460F1]',
     accent: 'bg-[#F1F4FF]'
@@ -253,7 +250,6 @@ const QUADRANTS: Record<QuadrantType, { name: string; color: string; bullets: st
   Q4: { 
     name: '저성취 · 저참여', 
     bullets: ['관계 및 정서적 지원', '학습 진입 장벽 낮추기'],
-    footer: '가장 세심한 관찰이 필요하며, 개별 면담을 통한 원인 파악 우선',
     color: 'text-[#7A869A]',
     border: 'border-[#7A869A]',
     accent: 'bg-[#F4F5F7]'
@@ -360,8 +356,8 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    // Rule 1 & 2: Public data path
-    const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'strategies');
+    // Isolate by student: listen to the current student's specific subcollection
+    const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students', selectedStudent.id, 'strategies');
     
     const unsubscribe = onSnapshot(strategiesRef, (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Strategy));
@@ -372,18 +368,18 @@ export default function App() {
         return timeB - timeA;
       }));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `artifacts/${APP_ID}/public/data/strategies`);
+      handleFirestoreError(error, OperationType.LIST, `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, selectedStudent.id]);
 
   const handleSubmit = async () => {
     if (!selectedQuadrant || !strategyText.trim() || !user) return;
     setIsSubmitting(true);
-    const path = `artifacts/${APP_ID}/public/data/strategies`;
+    const path = `artifacts/${APP_ID}/public/data/students/${selectedStudent.id}/strategies`;
     try {
-      const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'strategies');
+      const strategiesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students', selectedStudent.id, 'strategies');
       await addDoc(strategiesRef, {
         studentId: selectedStudent.id,
         quadrant: selectedQuadrant,
@@ -675,19 +671,6 @@ export default function App() {
                     <h3 className={cn("text-lg font-bold mb-3", info.color)}>
                       {info.name}
                     </h3>
-                    
-                    <ul className="space-y-1.5 mb-4 flex-1">
-                      {info.bullets.map((b, i) => (
-                        <li key={i} className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                          <CheckCircle className={cn("w-3.5 h-3.5", info.color)} />
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                    
-                    <div className="pt-3 border-t border-slate-100 mt-auto">
-                      <p className="text-[10px] text-slate-400 font-medium leading-tight">{info.footer}</p>
-                    </div>
                   </button>
                 );
               })}
@@ -733,13 +716,13 @@ export default function App() {
                 동료 선생님들의 분석 및 전략
               </h2>
               <div className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-full">
-                {strategies.filter(s => s.studentId === selectedStudent.id).length}개의 의견
+                {strategies.length}개의 의견
               </div>
             </div>
 
             <div className="space-y-6">
               <AnimatePresence mode="popLayout">
-                {strategies.filter(s => s.studentId === selectedStudent.id).length === 0 ? (
+                {strategies.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -749,7 +732,7 @@ export default function App() {
                     <p className="text-slate-400 font-bold">아직 작성된 전략이 없습니다.</p>
                   </motion.div>
                 ) : (
-                  strategies.filter(s => s.studentId === selectedStudent.id).map((item) => (
+                  strategies.map((item) => (
                     <motion.div
                       key={item.id}
                       initial={{ opacity: 0, y: 10 }}
